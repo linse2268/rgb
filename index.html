@@ -660,7 +660,7 @@
     <div class="chart-legend">
       <span class="legend-item">
         <span class="legend-swatch colorcontrast"></span>
-        Farbkontrast (Farbe)
+        Farbkontrast (YCbCr)
       </span>
       <span class="legend-item">
         <span class="legend-swatch motion"></span>
@@ -684,7 +684,7 @@
   
     
     <div class="metric">
-      <div class="metric-label">Ø Farbkontrast (Farbe, Trennung) · Rohwert</div>
+      <div class="metric-label">Ø Farbkontrast (YCbCr, Trennung) · Rohwert</div>
       <div class="metric-value" id="avgColorContrast" style="color: #FFC107">–</div>
     </div>
 
@@ -802,45 +802,41 @@
   - Seitenverhältnis wird beim Verkleinern auf die
     Analyseauflösung beibehalten (Letterboxing), damit das
     Bild nicht verzerrt wird.
-  - Kontrast wird ausschließlich als Farbkontrast erfasst,
-    basierend auf einem wählbaren Blockraster (16×9 oder 32×18,
-    analog zur Sample-FPS-Auswahl) statt auf einzelnen Pixeln:
-    "Farbkontrast (Farbe)" misst, wie stark sich zusammen-
-    hängende Bildbereiche (Blöcke) ausschließlich auf Basis der
-    Farbinformation (Chrominanz, YCbCr-Farbraum) voneinander
-    abheben - unabhängig von der Helligkeit. Berechnet als
-    mittlere paarweise Farbdistanz über ALLE Blockpaare im
-    Raster ("Trennung"). Das erkennt auch Fälle, in denen sich
-    Vordergrund und Hintergrund zwar farblich, aber kaum in der
-    Helligkeit unterscheiden (z. B. eine rote Figur vor grünem
-    Hintergrund bei ähnlicher Helligkeit). Werte aus älteren
-    Analysen/CSV-Exporten sind mit dieser Version nicht direkt
-    vergleichbar.
+  - Kontrast wird als einzelne Metrik "Farbkontrast (YCbCr)"
+    erfasst, basierend auf einem wählbaren Blockraster (16×9
+    oder 32×18, analog zur Sample-FPS-Auswahl) statt auf
+    einzelnen Pixeln: Sie misst, wie stark sich zusammen-
+    hängende Bildbereiche (Blöcke) im vollen YCbCr-Farbraum
+    (Helligkeit Y UND Farbe Cb/Cr gemeinsam) voneinander
+    unterscheiden. Berechnet als mittlere paarweise YCbCr-
+    Distanz über ALLE Blockpaare im Raster ("Trennung"). Werte
+    aus älteren Analysen/CSV-Exporten sind mit dieser Version
+    nicht direkt vergleichbar.
 
   Änderungen in dieser (aktuellsten) Version:
 
-  - Der Farbkontrast wird jetzt ausschließlich über den
-    "Trennung"-Anteil (mittlere paarweise Farbdistanz über alle
-    Blockpaare) gebildet. Der bisherige zusätzliche "Nachbar"-
-    Anteil (mittlere Farbdistanz direkt benachbarter Blöcke) und
-    dessen Gewichtung mit dem Trennungs-Anteil wurden entfernt -
-    "colorContrastRaw" ist jetzt identisch mit dem, was vorher
-    "colorContrastSeparationRaw" hieß. Die CSV-Spalten
-    "..._Nachbar" bzw. "..._Trennung" für den Farbkontrast
-    entfallen entsprechend; es gibt nur noch eine einzelne
-    "Farbkontrast_roh"-Spalte.
+  - Die Farbkontrastmetrik bezieht jetzt wieder die Helligkeit
+    (Y) mit in die Distanzberechnung ein (volle YCbCr-Distanz
+    statt reiner Cb/Cr-Chrominanzdistanz). "colorContrastRaw"
+    misst damit den gesamten wahrnehmbaren Unterschied zwischen
+    Bildbereichen (Helligkeit UND Farbe), nicht mehr nur die
+    reine Farbe ohne Helligkeitsanteil. Das ist weiterhin EINE
+    einzelne Metrik ("Farbkontrast") - es gibt keinen separaten,
+    zusätzlichen Helligkeitskontrast-Kanal.
 
-  - Der bisherige, auf Helligkeit basierende Kontrast-Kanal
-    ("Kontrast (Helligkeit)") wurde vollständig entfernt - er
-    wird an keiner Stelle mehr berechnet, angezeigt oder
-    exportiert. Übrig geblieben ist ausschließlich der
-    Farbkontrast. Die Helligkeit (Luminanz Y) wird intern nur
-    noch für zwei Dinge verwendet, die NICHT Teil der
-    Kontrastanalyse sind: (1) die YCbCr-Umrechnung, aus der die
-    Farbkontrast-Werte gebildet werden, und (2) die
-    inhaltsbasierte Endeerkennung (schwarze/eingefrorene Frames
-    am tatsächlichen Videoende, siehe BLANK_LUMINANCE_THRESHOLD
-    weiter unten).
+  - Der Farbkontrast wird ausschließlich über den "Trennung"-
+    Anteil (mittlere paarweise YCbCr-Distanz über alle
+    Blockpaare) gebildet. Ein zusätzlicher "Nachbar"-Anteil
+    (mittlere Distanz direkt benachbarter Blöcke) mit eigener
+    Gewichtung existiert nicht (mehr). Es gibt entsprechend nur
+    eine einzelne "Farbkontrast_roh"-Spalte im CSV-Export.
+
+  - Es gibt weiterhin keinen separaten, zusätzlichen
+    Helligkeitskontrast-Kanal ("Kontrast (Helligkeit)") - dieser
+    wurde in einer früheren Version entfernt und nicht wieder
+    eingeführt. Y fließt ausschließlich als Bestandteil der
+    einzelnen Farbkontrastmetrik ein (siehe oben), nicht als
+    eigenständige zweite Metrik.
   - Sämtliche künstliche 0-100-Normierung/Kalibrierung wurde
     entfernt (u. a. die bisherigen "contrast"/"colorContrast"/
     "motion"/"cutScore"-Felder mit ihren Referenzkonstanten wie
@@ -1108,24 +1104,29 @@ let nextBufferIndex = 0;
   Wiederverwendete Puffer für die Block-Raster-Farbkontrastanalyse.
 
   Statt pro Pixel einen Wert zu speichern (wie bei den übrigen
-  Metriken), werden hier pro BLOCK die Summen von Chrominanz
-  (Cb, Cr) sowie die Anzahl der Pixel je Block gesammelt. Daraus
-  werden anschließend die Block-Mittelwerte gebildet. Die Puffer
-  sind auf die maximal mögliche Rastergröße (32x18) ausgelegt und
-  werden je nach gewähltem Raster nur teilweise befüllt (die
-  ersten CONTRAST_GRID_COLS * CONTRAST_GRID_ROWS Einträge).
+  Metriken), werden hier pro BLOCK die Summen von Luminanz (Y)
+  und Chrominanz (Cb, Cr) sowie die Anzahl der Pixel je Block
+  gesammelt. Daraus werden anschließend die Block-Mittelwerte
+  gebildet. Die Puffer sind auf die maximal mögliche Rastergröße
+  (32x18) ausgelegt und werden je nach gewähltem Raster nur
+  teilweise befüllt (die ersten CONTRAST_GRID_COLS *
+  CONTRAST_GRID_ROWS Einträge).
 
-  Cb/Cr (statt RGB), weil eine reine RGB-Differenz nicht
+  Y/Cb/Cr (statt RGB), weil eine reine RGB-Differenz nicht
   wahrnehmungslinear ist (gleich große RGB-Abstände wirken je
-  nach Farbton unterschiedlich stark). Die Helligkeit (Y) wird
-  für die Berechnung von Cb/Cr zwar pro Pixel benötigt (siehe
-  analyzeFrame()), aber nicht mehr pro Block aufsummiert, da sie
-  in keine Kontrastmetrik mehr einfließt.
+  nach Farbton unterschiedlich stark). Y fließt hier bewusst mit
+  in die Distanzberechnung ein (siehe
+  averagePairwiseYCbCrDistance() unten) - der Farbkontrast misst
+  damit den vollen wahrnehmbaren Unterschied (Helligkeit UND
+  Farbe) zwischen Bildbereichen, nicht nur die reine Farbe ohne
+  Helligkeitsanteil.
 */
+const blockSumY = new Float64Array(MAX_CONTRAST_BLOCKS);
 const blockSumCb = new Float64Array(MAX_CONTRAST_BLOCKS);
 const blockSumCr = new Float64Array(MAX_CONTRAST_BLOCKS);
 const blockCount = new Int32Array(MAX_CONTRAST_BLOCKS);
 
+const blockMeanY = new Float64Array(MAX_CONTRAST_BLOCKS);
 const blockMeanCb = new Float64Array(MAX_CONTRAST_BLOCKS);
 const blockMeanCr = new Float64Array(MAX_CONTRAST_BLOCKS);
 
@@ -1811,23 +1812,25 @@ function seekVideo(time, timeoutMs = SEEK_TIMEOUT_MS) {
 
 /*
   ------------------------------------------------------------
-  Hilfsfunktion: mittlere paarweise Farbdistanz
+  Hilfsfunktion: mittlere paarweise YCbCr-Distanz
   ------------------------------------------------------------
 
   Berechnet die mittlere (vereinfachte ΔE76-artige) Distanz
-  zwischen den Chrominanzwerten (Cb, Cr) ALLER Blockpaare im
+  zwischen den YCbCr-Werten (Y, Cb, Cr) ALLER Blockpaare im
   Raster - nicht nur direkt benachbarter Blöcke. Das misst, wie
-  farblich vielfältig/getrennt das Bild insgesamt ist, unabhängig
-  von der genauen Position der Farbflächen zueinander. Bewusst
-  ohne Y (Helligkeit), da hier ausschließlich die Farbinformation
-  gemessen werden soll.
+  vielfältig/getrennt sich das Bild insgesamt in den Blöcken
+  darstellt, unabhängig von der genauen Position der Bildbereiche
+  zueinander. Y (Helligkeit) fließt hier bewusst MIT ein: der
+  Farbkontrast bildet damit den vollen wahrnehmbaren YCbCr-
+  Unterschied ab statt nur die reine Chrominanz (Cb/Cr) ohne
+  Helligkeitsanteil.
 
   Bei bis zu 576 Blöcken (32x18-Raster) sind das maximal ca.
   165.600 Paare - pro Frame ein vernachlässigbarer Aufwand
   verglichen mit den Kosten eines einzelnen Video-Seeks.
 */
 
-function averagePairwiseChromaDistance(cbValues, crValues, count) {
+function averagePairwiseYCbCrDistance(yValues, cbValues, crValues, count) {
 
   if (count < 2) {
     return 0;
@@ -1838,15 +1841,17 @@ function averagePairwiseChromaDistance(cbValues, crValues, count) {
 
   for (let i = 0; i < count; i++) {
 
+    const yI = yValues[i];
     const cbI = cbValues[i];
     const crI = crValues[i];
 
     for (let j = i + 1; j < count; j++) {
 
+      const dY = yI - yValues[j];
       const dCb = cbI - cbValues[j];
       const dCr = crI - crValues[j];
 
-      sum += Math.sqrt(dCb * dCb + dCr * dCr);
+      sum += Math.sqrt(dY * dY + dCb * dCb + dCr * dCr);
       pairs++;
     }
   }
@@ -1865,23 +1870,20 @@ function averagePairwiseChromaDistance(cbValues, crValues, count) {
   vorherigen Frame). Der Farbkontrast wird dagegen NICHT
   pixelweise, sondern über ein Blockraster (CONTRAST_GRID_COLS x
   CONTRAST_GRID_ROWS, vom Nutzer wählbar) ermittelt: Während des
-  Pixel-Durchlaufs wird die Farbe (Cb, Cr) pro Block aufsummiert;
-  danach wird in einem zweiten, günstigen Durchlauf über die
-  (deutlich kleinere) Anzahl an Blöcken die Metrik
-  "colorContrastRaw" gebildet: wie stark sich zusammenhängende
-  Bildbereiche ausschließlich auf Basis der Farbinformation
-  (Cb/Cr aus dem YCbCr-Farbraum) unterscheiden, unabhängig von
-  der Helligkeit. Erkennt auch Vordergrund/Hintergrund-
-  Trennungen, die sich zwar farblich, aber kaum in der
-  Helligkeit unterscheiden (z. B. eine rote Figur vor grünem
-  Hintergrund bei ähnlicher Helligkeit).
+  Pixel-Durchlaufs werden Helligkeit (Y) und Farbe (Cb, Cr) pro
+  Block aufsummiert; danach wird in einem zweiten, günstigen
+  Durchlauf über die (deutlich kleinere) Anzahl an Blöcken die
+  Metrik "colorContrastRaw" gebildet: wie stark sich
+  zusammenhängende Bildbereiche im vollen YCbCr-Farbraum (Y, Cb,
+  Cr gemeinsam) voneinander unterscheiden. Das erkennt sowohl
+  Helligkeitsunterschiede als auch reine Farbunterschiede bei
+  ähnlicher Helligkeit (z. B. eine rote Figur vor grünem
+  Hintergrund).
 
-  Y/Cb/Cr statt reinem RGB für die Farbdifferenzberechnung, weil
-  eine reine RGB-Differenz nicht wahrnehmungslinear ist (gleich
-  große RGB-Abstände wirken je nach Farbton unterschiedlich
-  stark); die Helligkeit (Y) wird dabei nur als Zwischenschritt
-  zur Berechnung von Cb/Cr benötigt, fließt selbst aber in keine
-  Metrik mehr ein.
+  Y/Cb/Cr statt reinem RGB, weil eine reine RGB-Differenz nicht
+  wahrnehmungslinear ist (gleich große RGB-Abstände wirken je
+  nach Farbton unterschiedlich stark); YCbCr ist demgegenüber
+  bereits deutlich wahrnehmungsnäher.
 
   Alle drei Ergebnisgrößen (colorContrastRaw, motionRaw,
   cutDiffRaw) sind unnormierte Rohwerte - es findet keinerlei
@@ -1897,6 +1899,7 @@ function analyzeFrame(data, previousData, deltaTime) {
   const blockWidth = ANALYSIS_WIDTH / CONTRAST_GRID_COLS;
   const blockHeight = ANALYSIS_HEIGHT / CONTRAST_GRID_ROWS;
 
+  blockSumY.fill(0, 0, numBlocks);
   blockSumCb.fill(0, 0, numBlocks);
   blockSumCr.fill(0, 0, numBlocks);
   blockCount.fill(0, 0, numBlocks);
@@ -1949,6 +1952,7 @@ function analyzeFrame(data, previousData, deltaTime) {
 
     const blockIndex = blockRow * CONTRAST_GRID_COLS + blockCol;
 
+    blockSumY[blockIndex] += luminance;
     blockSumCb[blockIndex] += cb;
     blockSumCr[blockIndex] += cr;
     blockCount[blockIndex]++;
@@ -1995,21 +1999,22 @@ function analyzeFrame(data, previousData, deltaTime) {
 
     const pixelsInBlock = blockCount[blockIndex] || 1;
 
+    blockMeanY[blockIndex] = blockSumY[blockIndex] / pixelsInBlock;
     blockMeanCb[blockIndex] = blockSumCb[blockIndex] / pixelsInBlock;
     blockMeanCr[blockIndex] = blockSumCr[blockIndex] / pixelsInBlock;
   }
 
 
   /*
-    Farbkontrast: mittlere paarweise Farbdistanz über alle Blöcke
-    (siehe averagePairwiseChromaDistance() oben). Das ist zugleich
-    der einzige verwendete Anteil - es gibt keinen zusätzlichen
-    "Nachbar"-Anteil mehr. colorContrastRaw bleibt ein
-    unnormierter Rohwert.
+    Farbkontrast: mittlere paarweise YCbCr-Distanz über alle
+    Blöcke (siehe averagePairwiseYCbCrDistance() oben), inklusive
+    Helligkeitsanteil (Y). Das ist zugleich der einzige
+    verwendete Anteil - es gibt keinen zusätzlichen "Nachbar"-
+    Anteil mehr. colorContrastRaw bleibt ein unnormierter Rohwert.
   */
 
   const colorContrastRaw =
-    averagePairwiseChromaDistance(blockMeanCb, blockMeanCr, numBlocks);
+    averagePairwiseYCbCrDistance(blockMeanY, blockMeanCb, blockMeanCr, numBlocks);
 
 
   if (!hasPrevious) {
@@ -2616,7 +2621,7 @@ function drawChart(data, cuts, viewStart, viewEnd) {
 
 
   /*
-    Farbkontrast (Farbe)
+    Farbkontrast (YCbCr)
   */
 
   chartCtx.setLineDash([]);
