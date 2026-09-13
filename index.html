@@ -282,10 +282,6 @@
         border-radius: 2px;
     }
 
-    .legend-swatch.contrast {
-        background: #4CAF50;
-    }
-
     .legend-swatch.colorcontrast {
         background: #FFC107;
     }
@@ -564,7 +560,7 @@
 
   <h1>Neue Videoanalyse</h1>
   <div class="subtitle">
-    Lokaler Kontrast · Bewegung · Schnitte
+    Farbkontrast · Bewegung · Schnitte
   </div>
 
   
@@ -604,7 +600,7 @@
 
   <div class="field">
     <label class="field-label" for="contrastGridSelect">
-      Raster für Kontrastanalyse
+      Raster für Farbkontrastanalyse
     </label>
     <select id="contrastGridSelect">
       <option value="16x9" selected>16×9 (grob)</option>
@@ -655,17 +651,13 @@
     </div>
     <div class="chart-body">
       <div class="chart-y-axis" aria-hidden="true">
-        <span>100%</span>
-        <span>50%</span>
-        <span>0%</span>
+        <span>hoch</span>
+        <span>·</span>
+        <span>niedrig</span>
       </div>
       <canvas id="chart" class="chart zoomable"></canvas>
     </div>
     <div class="chart-legend">
-      <span class="legend-item">
-        <span class="legend-swatch contrast"></span>
-        Kontrast (Helligkeit)
-      </span>
       <span class="legend-item">
         <span class="legend-swatch colorcontrast"></span>
         Farbkontrast (Farbe)
@@ -682,6 +674,8 @@
     <div class="info" style="margin-top:10px;">
       Ziehen zum Verschieben, Mausrad/Buttons zum Zoomen, Klick springt im Video an diese Stelle.
       Während der Wiedergabe folgt die Ansicht automatisch der Abspielposition (weiße Linie).
+      Die Kurven zeigen Rohwerte; jede Kurve ist für die Darstellung unabhängig auf ihr eigenes
+      Maximum im Video skaliert (die Werte selbst bleiben unnormierte Rohwerte, siehe Kacheln/CSV).
     </div>
   </div>
 
@@ -690,19 +684,13 @@
   
     
     <div class="metric">
-      <div class="metric-label">Ø Kontrast (Helligkeit) · Rohwert</div>
-      <div class="metric-value" id="avgContrast" style="color: #4CAF50">–</div>
-      <div class="metric-raw" id="avgContrastRaw">Nachbar: – · Trennung: –</div>
-    </div>
-
-    <div class="metric">
       <div class="metric-label">Ø Farbkontrast (Farbe) · Rohwert</div>
       <div class="metric-value" id="avgColorContrast" style="color: #FFC107">–</div>
       <div class="metric-raw" id="avgColorContrastRaw">Nachbar: – · Trennung: –</div>
     </div>
 
     <div class="metric">
-      <div class="metric-label">Ø Bewegung · Rohwert (Helligkeit/s)</div>
+      <div class="metric-label">Ø Bewegung · Rohwert (RGB-Differenz/s)</div>
       <div class="metric-value" id="avgMotion" style="color: #2196F3">–</div>
     </div>
 
@@ -769,7 +757,7 @@
 
   Analysiert:
 
-  1. Kontrast (Helligkeit & Farbe)
+  1. Farbkontrast
   2. Bewegung
   3. Schnitte
 
@@ -815,32 +803,50 @@
   - Seitenverhältnis wird beim Verkleinern auf die
     Analyseauflösung beibehalten (Letterboxing), damit das
     Bild nicht verzerrt wird.
-  - Kontrast wird jetzt in zwei getrennten Metriken erfasst,
+  - Kontrast wird ausschließlich als Farbkontrast erfasst,
     basierend auf einem wählbaren Blockraster (16×9 oder 32×18,
-    analog zur Sample-FPS-Auswahl) statt auf einzelnen Pixeln
-    oder der globalen Helligkeitsstreuung des gesamten Bildes:
+    analog zur Sample-FPS-Auswahl) statt auf einzelnen Pixeln:
+    "Farbkontrast (Farbe)" misst, wie stark sich zusammen-
+    hängende Bildbereiche (Blöcke) ausschließlich auf Basis der
+    Farbinformation (Chrominanz, YCbCr-Farbraum) voneinander
+    abheben - unabhängig von der Helligkeit. Kombiniert aus (a)
+    der mittleren Farbdistanz benachbarter Blöcke und (b) der
+    mittleren paarweisen Farbdistanz über alle Blöcke. Das
+    erkennt auch Fälle, in denen sich Vordergrund und Hintergrund
+    zwar farblich, aber kaum in der Helligkeit unterscheiden
+    (z. B. eine rote Figur vor grünem Hintergrund bei ähnlicher
+    Helligkeit). Werte aus älteren Analysen/CSV-Exporten sind mit
+    dieser Version nicht direkt vergleichbar.
 
-      1. "Kontrast (Helligkeit)": wie stark sich zusammen-
-         hängende Bildbereiche (Blöcke) in ihrer Helligkeit
-         voneinander abheben. Kombiniert aus (a) der mittleren
-         Helligkeitsdifferenz benachbarter Blöcke und (b) der
-         Helligkeitsdifferenz zwischen den zwei Helligkeits-
-         gruppen, in die sich das Bild am deutlichsten aufteilen
-         lässt (Otsu-artige Zwei-Gruppen-Trennung).
-      2. "Farbkontrast (Farbe)": dieselbe Idee, aber ausschließ-
-         lich auf Basis der Farbinformation (Chrominanz, YCbCr-
-         Farbraum), unabhängig von der Helligkeit. Das erkennt
-         auch Fälle, in denen sich Vordergrund und Hintergrund
-         zwar farblich, aber kaum in der Helligkeit unterscheiden
-         (z. B. eine rote Figur vor grünem Hintergrund bei
-         ähnlicher Helligkeit) - das wäre über reine Helligkeits-
-         betrachtung nicht erkennbar gewesen.
+  Änderungen in dieser (aktuellsten) Version:
 
-    Beide Metriken sind bewusst getrennt (nicht zu einem
-    gemeinsamen Score verrechnet), damit erkennbar bleibt, ob
-    sich Vordergrund/Hintergrund eher über Helligkeit oder eher
-    über Farbe trennen. Werte aus älteren Analysen/CSV-Exporten
-    sind mit dieser Version nicht direkt vergleichbar.
+  - Der bisherige, auf Helligkeit basierende Kontrast-Kanal
+    ("Kontrast (Helligkeit)") wurde vollständig entfernt - er
+    wird an keiner Stelle mehr berechnet, angezeigt oder
+    exportiert. Übrig geblieben ist ausschließlich der
+    Farbkontrast. Die Helligkeit (Luminanz Y) wird intern nur
+    noch für zwei Dinge verwendet, die NICHT Teil der
+    Kontrastanalyse sind: (1) die YCbCr-Umrechnung, aus der die
+    Farbkontrast-Werte gebildet werden, und (2) die
+    inhaltsbasierte Endeerkennung (schwarze/eingefrorene Frames
+    am tatsächlichen Videoende, siehe BLANK_LUMINANCE_THRESHOLD
+    weiter unten).
+  - Sämtliche künstliche 0-100-Normierung/Kalibrierung wurde
+    entfernt (u. a. die bisherigen "contrast"/"colorContrast"/
+    "motion"/"cutScore"-Felder mit ihren Referenzkonstanten wie
+    LUMINANCE_*_REFERENCE, COLOR_*_REFERENCE und
+    MOTION_RATE_FOR_MAX_SCORE). "results" enthält jetzt
+    ausschließlich Rohwerte (colorContrastRaw, motionRaw,
+    cutDiffRaw) - dieselben Werte, die auch in den Kacheln, im
+    CSV-Export und in der Vergleichsliste stehen. Die
+    Schnitterkennung (siehe detectCuts()) arbeitet jetzt direkt
+    auf dem rohen Schnitt-Differenzwert (cutDiffRaw) statt auf
+    einem kalibrierten Score. Das Chart stellt diese Rohwerte
+    weiterhin als Kurven dar, skaliert dafür aber jede Kurve rein
+    für die Darstellung unabhängig auf ihr eigenes Maximum
+    innerhalb des Videos (siehe drawChart()) - diese Skalierung
+    ist nur eine Visualisierungshilfe und verändert nicht die in
+    "results" gespeicherten bzw. exportierten Rohwerte.
   ------------------------------------------------------------
 */
 
@@ -859,8 +865,6 @@ const contrastGridSelect = document.getElementById("contrastGridSelect");
 const statusEl = document.getElementById("status");
 const progressBar = document.getElementById("progressBar");
 
-const avgContrastEl = document.getElementById("avgContrast");
-const avgContrastRawEl = document.getElementById("avgContrastRaw");
 const avgColorContrastEl = document.getElementById("avgColorContrast");
 const avgColorContrastRawEl = document.getElementById("avgColorContrastRaw");
 const avgMotionEl = document.getElementById("avgMotion");
@@ -912,40 +916,30 @@ let SAMPLE_FPS = 10;
 /*
   Zeitnormalisierung für die Bewegungsanalyse.
 
-  Die rohe Helligkeitsdifferenz zwischen zwei Samples hängt stark
+  Die rohe RGB-Pixeldifferenz zwischen zwei Samples hängt stark
   vom zeitlichen Abstand zwischen den Samples ab. Damit der
-  Motion-Wert unabhängig von SAMPLE_FPS vergleichbar bleibt, wird
-  die gemessene Helligkeitsdifferenz durch die tatsächlich
-  vergangene Zeit zwischen den beiden Samples geteilt
-  ("Helligkeitsänderung pro Sekunde").
-
-  WICHTIG: MOTION_REFERENCE_FPS ist ein FESTER Referenzwert und
-  NICHT identisch mit der (jetzt vom Nutzer wählbaren) SAMPLE_FPS.
-  Würde man stattdessen SAMPLE_FPS selbst verwenden, würde sich
-  SAMPLE_FPS in der Rechnung exakt herauskürzen (weil deltaTime
-  selbst schon ≈ 1/SAMPLE_FPS ist) und die Zeitnormalisierung
-  hätte keine Wirkung mehr. Mit einem fixen Referenzwert bleibt
-  Motion unabhängig von der gewählten Sample-Rate vergleichbar.
+  Motion-Rohwert unabhängig von SAMPLE_FPS vergleichbar bleibt,
+  wird die gemessene Differenz durch die tatsächlich vergangene
+  Zeit zwischen den beiden Samples geteilt ("Pixeländerung pro
+  Sekunde"). Das Ergebnis (motionRaw) ist ein Rohwert - es gibt
+  keine weitere Kalibrierung/Normierung auf einen festen Bereich.
 */
-const MOTION_REFERENCE_FPS = 10;
-const MOTION_RATE_FOR_MAX_SCORE = 25 * MOTION_REFERENCE_FPS;
 
 
 /*
   ------------------------------------------------------------
-  Raster für die Kontrastanalyse (Helligkeit & Farbe)
+  Raster für die Farbkontrastanalyse
   ------------------------------------------------------------
 
-  Statt einzelner Pixel oder der globalen Helligkeitsstreuung
-  des gesamten Bildes wird das Analysebild (ANALYSIS_WIDTH x
+  Statt einzelner Pixel wird das Analysebild (ANALYSIS_WIDTH x
   ANALYSIS_HEIGHT) in ein Raster aus Blöcken unterteilt. Jeder
   Block repräsentiert einen zusammenhängenden Bildbereich; für
-  ihn wird ein einzelner Mittelwert gebildet (Helligkeit und
-  Farbe), statt jedes Pixel einzeln zu betrachten. Das ist
-  robuster gegenüber Bildrauschen/Kompressionsartefakten als
-  ein reiner Pixel-zu-Pixel-Vergleich, bildet aber weiterhin
-  ab, wie stark sich zusammenhängende Flächen (potenziell
-  Vordergrund vs. Hintergrund) voneinander unterscheiden.
+  ihn wird ein einzelner Farb-Mittelwert gebildet, statt jedes
+  Pixel einzeln zu betrachten. Das ist robuster gegenüber
+  Bildrauschen/Kompressionsartefakten als ein reiner Pixel-zu-
+  Pixel-Vergleich, bildet aber weiterhin ab, wie stark sich
+  zusammenhängende Flächen (potenziell Vordergrund vs.
+  Hintergrund) farblich voneinander unterscheiden.
 
   16x9 und 32x18 wurden gewählt, weil sie sich beide glatt in
   ANALYSIS_WIDTH/ANALYSIS_HEIGHT (160x90) teilen lassen
@@ -962,44 +956,27 @@ const MAX_CONTRAST_BLOCKS =
 
 
 /*
-  Gewichtung der beiden Teilaspekte innerhalb je einer
-  Kontrastmetrik (Helligkeit bzw. Farbe):
+  Gewichtung der beiden Teilaspekte innerhalb der
+  Farbkontrastmetrik:
 
-  - "Nachbar"-Anteil: mittlere Differenz zwischen direkt
+  - "Nachbar"-Anteil: mittlere Farbdistanz zwischen direkt
     benachbarten Blöcken. Misst Kantenschärfe/Konturen.
-  - "Trennung"-Anteil: Differenz zwischen den zwei Gruppen, in
-    die sich die Blöcke am deutlichsten aufteilen lassen. Misst,
-    wie klar sich das Bild in zwei Bereiche (z. B. Figur vs.
-    Hintergrund) trennen lässt, unabhängig von deren genauer
-    Position im Bild.
+  - "Trennung"-Anteil: mittlere paarweise Farbdistanz über ALLE
+    Blockpaare. Misst, wie farblich vielfältig/getrennt das Bild
+    insgesamt ist, unabhängig von der genauen Position der
+    Farbflächen zueinander.
 
   Der "Trennung"-Anteil liegt näher an der eigentlichen
   Zielsetzung ("wie gut trennt sich Vordergrund vom
   Hintergrund") und wird deshalb etwas stärker gewichtet. Beide
   Rohwerte werden zusätzlich einzeln im CSV-Export mitgegeben,
   falls diese Gewichtung sich in der Praxis als unpassend
-  herausstellt.
+  herausstellt. Das Ergebnis (colorContrastRaw) bleibt in jedem
+  Fall ein Rohwert - es findet keine Normierung auf einen festen
+  Bereich (z. B. 0-100) statt.
 */
 const CONTRAST_NEIGHBOR_WEIGHT = 0.4;
 const CONTRAST_SEPARATION_WEIGHT = 0.6;
-
-
-/*
-  Referenzwerte für die Normierung auf 0-100.
-
-  Nicht empirisch kalibriert, sondern grobe Startwerte - bei
-  Bedarf anhand von Testvideos anpassen (ein Video mit sehr
-  klarer Vordergrund/Hintergrund-Trennung sollte nahe 100
-  liegen, ein sehr flaches/kontrastarmes Bild nahe 0).
-
-  Die Referenzwerte für Helligkeit und Farbe unterscheiden sich,
-  weil Chrominanzwerte (Cb/Cr) in dieser Berechnung einen
-  anderen typischen Wertebereich haben als Luminanzwerte (Y).
-*/
-const LUMINANCE_NEIGHBOR_REFERENCE = 10;
-const LUMINANCE_SEPARATION_REFERENCE = 60;
-const COLOR_NEIGHBOR_REFERENCE = 8;
-const COLOR_SEPARATION_REFERENCE = 25;
 
 
 /*
@@ -1129,42 +1106,29 @@ let nextBufferIndex = 0;
 
 
 /*
-  Wiederverwendete Puffer für die Block-Raster-Kontrastanalyse
-  (Helligkeit & Farbe).
+  Wiederverwendete Puffer für die Block-Raster-Farbkontrastanalyse.
 
   Statt pro Pixel einen Wert zu speichern (wie bei den übrigen
-  Metriken), werden hier pro BLOCK die Summen von Luminanz (Y)
-  und Chrominanz (Cb, Cr) sowie die Anzahl der Pixel je Block
-  gesammelt. Daraus werden anschließend die Block-Mittelwerte
-  gebildet. Die Puffer sind auf die maximal mögliche Rastergröße
-  (32x18) ausgelegt und werden je nach gewähltem Raster nur
-  teilweise befüllt (die ersten CONTRAST_GRID_COLS *
-  CONTRAST_GRID_ROWS Einträge).
+  Metriken), werden hier pro BLOCK die Summen von Chrominanz
+  (Cb, Cr) sowie die Anzahl der Pixel je Block gesammelt. Daraus
+  werden anschließend die Block-Mittelwerte gebildet. Die Puffer
+  sind auf die maximal mögliche Rastergröße (32x18) ausgelegt und
+  werden je nach gewähltem Raster nur teilweise befüllt (die
+  ersten CONTRAST_GRID_COLS * CONTRAST_GRID_ROWS Einträge).
 
-  Y/Cb/Cr statt RGB, weil eine reine RGB-Differenz nicht
+  Cb/Cr (statt RGB), weil eine reine RGB-Differenz nicht
   wahrnehmungslinear ist (gleich große RGB-Abstände wirken je
-  nach Farbton unterschiedlich stark) und weil YCbCr außerdem
-  erlaubt, Helligkeit (Y) und Farbe (Cb/Cr) für die beiden
-  getrennten Kontrastmetriken sauber zu trennen.
+  nach Farbton unterschiedlich stark). Die Helligkeit (Y) wird
+  für die Berechnung von Cb/Cr zwar pro Pixel benötigt (siehe
+  analyzeFrame()), aber nicht mehr pro Block aufsummiert, da sie
+  in keine Kontrastmetrik mehr einfließt.
 */
-const blockSumY = new Float64Array(MAX_CONTRAST_BLOCKS);
 const blockSumCb = new Float64Array(MAX_CONTRAST_BLOCKS);
 const blockSumCr = new Float64Array(MAX_CONTRAST_BLOCKS);
 const blockCount = new Int32Array(MAX_CONTRAST_BLOCKS);
 
-const blockMeanY = new Float64Array(MAX_CONTRAST_BLOCKS);
 const blockMeanCb = new Float64Array(MAX_CONTRAST_BLOCKS);
 const blockMeanCr = new Float64Array(MAX_CONTRAST_BLOCKS);
-
-/*
-  Wiederverwendeter Scratch-Puffer zum Sortieren der Block-
-  Helligkeitswerte (für die Otsu-artige Zwei-Gruppen-Trennung,
-  siehe otsuSplit()). Als TypedArray, weil TypedArray.sort()
-  ohne Comparator numerisch sortiert (im Gegensatz zu
-  Array.sort(), das standardmäßig lexikografisch sortiert) und
-  weil so keine neue Array-Allokation pro Frame nötig ist.
-*/
-const blockSortScratch = new Float64Array(MAX_CONTRAST_BLOCKS);
 
 
 /*
@@ -1220,9 +1184,6 @@ fileInput.addEventListener("change", () => {
     `${file.name} · ${(file.size / 1024 / 1024).toFixed(1)} MB`;
 
   progressBar.style.width = "0%";
-
-  avgContrastEl.textContent = "–";
-  avgContrastRawEl.textContent = "Nachbar: – · Trennung: –";
 
   avgColorContrastEl.textContent = "–";
   avgColorContrastRawEl.textContent = "Nachbar: – · Trennung: –";
@@ -1309,9 +1270,6 @@ clearBtn.addEventListener("click", () => {
     "Noch kein Video ausgewählt.";
 
   progressBar.style.width = "0%";
-
-  avgContrastEl.textContent = "–";
-  avgContrastRawEl.textContent = "Nachbar: – · Trennung: –";
 
   avgColorContrastEl.textContent = "–";
   avgColorContrastRawEl.textContent = "Nachbar: – · Trennung: –";
@@ -1591,7 +1549,7 @@ async function analyzeVideo() {
       also keine zusätzliche Zeitquelle benötigt. Beim allerersten
       Frame gibt es noch keinen vorherigen Eintrag; deltaTime
       bleibt dann null (analyzeFrame liefert für diesen Fall
-      ohnehin motion = 0 zurück).
+      ohnehin motionRaw = 0 zurück).
     */
 
     const previousSampleTime =
@@ -1621,17 +1579,10 @@ async function analyzeVideo() {
 
     results.push({
       time,
-      contrast: frame.contrast,
-      contrastRaw: frame.contrastRaw,
-      contrastNeighborRaw: frame.contrastNeighborRaw,
-      contrastSeparationRaw: frame.contrastSeparationRaw,
-      colorContrast: frame.colorContrast,
       colorContrastRaw: frame.colorContrastRaw,
       colorContrastNeighborRaw: frame.colorContrastNeighborRaw,
       colorContrastSeparationRaw: frame.colorContrastSeparationRaw,
-      motion: frame.motion,
       motionRaw: frame.motionRaw,
-      cutScore: frame.cutScore,
       cutDiffRaw: frame.cutDiffRaw
     });
 
@@ -1865,89 +1816,6 @@ function seekVideo(time, timeoutMs = SEEK_TIMEOUT_MS) {
 
 /*
   ------------------------------------------------------------
-  Hilfsfunktion: Zwei-Gruppen-Trennung (Otsu-artig)
-  ------------------------------------------------------------
-
-  Findet in einer sortierten Liste von Werten die Trennstelle,
-  die die zwei entstehenden Gruppen am deutlichsten voneinander
-  abhebt (maximale Zwischen-Gruppen-Varianz - dasselbe Prinzip
-  wie beim Otsu-Schwellenwertverfahren aus der Bildverarbeitung,
-  dort normalerweise auf ein Helligkeitshistogramm angewendet).
-
-  Damit wird nicht mit einem willkürlich festen Prozentsatz
-  (z. B. "oberste/unterste 25 %") gearbeitet, sondern die
-  Trennstelle automatisch dort gesetzt, wo sich zwei Bereiche
-  im Bild (z. B. eine Figur vs. Hintergrund) am klarsten
-  unterscheiden lassen - unabhängig davon, ob die Figur 10 %
-  oder 60 % der Bildfläche einnimmt.
-
-  Erwartet ein aufsteigend sortiertes Array-artiges Objekt
-  (normales Array oder TypedArray) und gibt die Mittelwerte der
-  unteren und oberen Gruppe zurück.
-*/
-
-function otsuSplit(sortedValues) {
-
-  const n = sortedValues.length;
-
-  if (n < 2) {
-
-    const only = n === 1 ? sortedValues[0] : 0;
-
-    return {
-      meanLow: only,
-      meanHigh: only
-    };
-  }
-
-  let totalSum = 0;
-
-  for (let i = 0; i < n; i++) {
-    totalSum += sortedValues[i];
-  }
-
-  let sumLow = 0;
-  let bestBetweenVariance = -1;
-  let bestSplitIndex = 0;
-
-  for (let i = 0; i < n - 1; i++) {
-
-    sumLow += sortedValues[i];
-
-    const countLow = i + 1;
-    const countHigh = n - countLow;
-    const sumHigh = totalSum - sumLow;
-
-    const meanLow = sumLow / countLow;
-    const meanHigh = sumHigh / countHigh;
-
-    const betweenVariance =
-      countLow * countHigh * (meanLow - meanHigh) * (meanLow - meanHigh);
-
-    if (betweenVariance > bestBetweenVariance) {
-      bestBetweenVariance = betweenVariance;
-      bestSplitIndex = i;
-    }
-  }
-
-  let finalSumLow = 0;
-
-  for (let i = 0; i <= bestSplitIndex; i++) {
-    finalSumLow += sortedValues[i];
-  }
-
-  const finalCountLow = bestSplitIndex + 1;
-  const finalCountHigh = n - finalCountLow;
-
-  return {
-    meanLow: finalSumLow / finalCountLow,
-    meanHigh: (totalSum - finalSumLow) / finalCountHigh
-  };
-}
-
-
-/*
-  ------------------------------------------------------------
   Hilfsfunktion: mittlere paarweise Farbdistanz
   ------------------------------------------------------------
 
@@ -1955,15 +1823,9 @@ function otsuSplit(sortedValues) {
   zwischen den Chrominanzwerten (Cb, Cr) ALLER Blockpaare im
   Raster - nicht nur direkt benachbarter Blöcke. Das misst, wie
   farblich vielfältig/getrennt das Bild insgesamt ist, unabhängig
-  von der genauen Position der Farbflächen zueinander.
-
-  Bewusst ohne Y (Helligkeit): der Helligkeitsanteil wird bereits
-  vollständig über contrastSeparationRaw (siehe otsuSplit oben)
-  abgedeckt. Würde man Y hier zusätzlich einbeziehen, würde sich
-  ein Teil dieser Metrik mit der Helligkeitsmetrik überschneiden
-  und Fälle wie "gleiche Helligkeit, andere Farbe" wieder
-  verwässern - genau der Fall, den diese separate Farbmetrik
-  eigentlich sichtbar machen soll.
+  von der genauen Position der Farbflächen zueinander. Bewusst
+  ohne Y (Helligkeit), da hier ausschließlich die Farbinformation
+  gemessen werden soll.
 
   Bei bis zu 576 Blöcken (32x18-Raster) sind das maximal ca.
   165.600 Paare - pro Frame ein vernachlässigbarer Aufwand
@@ -2000,42 +1862,35 @@ function averagePairwiseChromaDistance(cbValues, crValues, count) {
 
 /*
   ------------------------------------------------------------
-  Frame-Analyse: Kontrast (Helligkeit & Farbe), Bewegung und
-  Schnittscore
+  Frame-Analyse: Farbkontrast, Bewegung und Schnitt-Differenz
   ------------------------------------------------------------
 
-  Bewegung und Schnittscore werden wie bisher direkt aus dem
-  Pixel-Durchlauf berechnet. Kontrast wird dagegen NICHT mehr
+  Bewegung und Schnitt-Differenz werden direkt aus dem Pixel-
+  Durchlauf berechnet (mittlere absolute RGB-Kanaldifferenz zum
+  vorherigen Frame). Der Farbkontrast wird dagegen NICHT
   pixelweise, sondern über ein Blockraster (CONTRAST_GRID_COLS x
   CONTRAST_GRID_ROWS, vom Nutzer wählbar) ermittelt: Während des
-  Pixel-Durchlaufs werden Helligkeit (Y) und Farbe (Cb, Cr) pro
-  Block aufsummiert; danach werden in einem zweiten, günstigen
-  Durchlauf über die (deutlich kleinere) Anzahl an Blöcken zwei
-  GETRENNTE Kontrastmetriken gebildet:
+  Pixel-Durchlaufs wird die Farbe (Cb, Cr) pro Block aufsummiert;
+  danach wird in einem zweiten, günstigen Durchlauf über die
+  (deutlich kleinere) Anzahl an Blöcken die Metrik
+  "colorContrastRaw" gebildet: wie stark sich zusammenhängende
+  Bildbereiche ausschließlich auf Basis der Farbinformation
+  (Cb/Cr aus dem YCbCr-Farbraum) unterscheiden, unabhängig von
+  der Helligkeit. Erkennt auch Vordergrund/Hintergrund-
+  Trennungen, die sich zwar farblich, aber kaum in der
+  Helligkeit unterscheiden (z. B. eine rote Figur vor grünem
+  Hintergrund bei ähnlicher Helligkeit).
 
-  - "contrast" (Helligkeit): wie stark sich zusammenhängende
-    Bildbereiche in ihrer Helligkeit unterscheiden. Kombiniert
-    aus (a) der mittleren Differenz benachbarter Blöcke
-    ("Kantenschärfe") und (b) der Differenz zwischen den zwei
-    Helligkeitsgruppen, in die sich das Bild am deutlichsten
-    aufteilen lässt (Otsu-artige Trennung, siehe otsuSplit()).
-  - "colorContrast" (Farbe): dieselbe Grundidee, aber
-    ausschließlich auf Basis der Farbinformation (Cb/Cr aus dem
-    YCbCr-Farbraum), unabhängig von der Helligkeit. Erkennt auch
-    Vordergrund/Hintergrund-Trennungen, die sich zwar farblich,
-    aber kaum in der Helligkeit unterscheiden (z. B. eine rote
-    Figur vor grünem Hintergrund bei ähnlicher Helligkeit).
+  Y/Cb/Cr statt reinem RGB für die Farbdifferenzberechnung, weil
+  eine reine RGB-Differenz nicht wahrnehmungslinear ist (gleich
+  große RGB-Abstände wirken je nach Farbton unterschiedlich
+  stark); die Helligkeit (Y) wird dabei nur als Zwischenschritt
+  zur Berechnung von Cb/Cr benötigt, fließt selbst aber in keine
+  Metrik mehr ein.
 
-  Beide Metriken werden bewusst getrennt gehalten (nicht zu einem
-  gemeinsamen Gesamtscore verrechnet), damit erkennbar bleibt, ob
-  sich Vordergrund und Hintergrund eher über Helligkeit oder eher
-  über Farbe trennen.
-
-  YCbCr statt vollständigem Lab-Farbraum: einfacher/günstiger zu
-  berechnen (nur lineare Umrechnung, keine Kubikwurzel-artige
-  Nichtlinearität), dabei aber - anders als rohes RGB - bereits
-  deutlich wahrnehmungsnäher, weil Helligkeit (Y) und Farbe
-  (Cb/Cr) sauber getrennt sind.
+  Alle drei Ergebnisgrößen (colorContrastRaw, motionRaw,
+  cutDiffRaw) sind unnormierte Rohwerte - es findet keinerlei
+  Skalierung auf einen festen Bereich (z. B. 0-100) statt.
   ------------------------------------------------------------
 */
 
@@ -2047,7 +1902,6 @@ function analyzeFrame(data, previousData, deltaTime) {
   const blockWidth = ANALYSIS_WIDTH / CONTRAST_GRID_COLS;
   const blockHeight = ANALYSIS_HEIGHT / CONTRAST_GRID_ROWS;
 
-  blockSumY.fill(0, 0, numBlocks);
   blockSumCb.fill(0, 0, numBlocks);
   blockSumCr.fill(0, 0, numBlocks);
   blockCount.fill(0, 0, numBlocks);
@@ -2100,7 +1954,6 @@ function analyzeFrame(data, previousData, deltaTime) {
 
     const blockIndex = blockRow * CONTRAST_GRID_COLS + blockCol;
 
-    blockSumY[blockIndex] += luminance;
     blockSumCb[blockIndex] += cb;
     blockSumCr[blockIndex] += cr;
     blockCount[blockIndex]++;
@@ -2147,19 +2000,16 @@ function analyzeFrame(data, previousData, deltaTime) {
 
     const pixelsInBlock = blockCount[blockIndex] || 1;
 
-    blockMeanY[blockIndex] = blockSumY[blockIndex] / pixelsInBlock;
     blockMeanCb[blockIndex] = blockSumCb[blockIndex] / pixelsInBlock;
     blockMeanCr[blockIndex] = blockSumCr[blockIndex] / pixelsInBlock;
   }
 
 
   /*
-    Nachbar-Differenzen: mittlere Differenz zwischen direkt
-    benachbarten Blöcken (rechts/unten), getrennt für Helligkeit
-    und Farbe.
+    Nachbar-Differenzen: mittlere Farbdistanz zwischen direkt
+    benachbarten Blöcken (rechts/unten).
   */
 
-  let lumNeighborSum = 0;
   let colorNeighborSum = 0;
   let neighborPairCount = 0;
 
@@ -2169,16 +2019,12 @@ function analyzeFrame(data, previousData, deltaTime) {
 
       const idx = row * CONTRAST_GRID_COLS + col;
 
-      const blockY = blockMeanY[idx];
       const blockCb = blockMeanCb[idx];
       const blockCr = blockMeanCr[idx];
 
       if (col < CONTRAST_GRID_COLS - 1) {
 
         const rightIdx = idx + 1;
-
-        lumNeighborSum +=
-          Math.abs(blockY - blockMeanY[rightIdx]);
 
         const dCb = blockCb - blockMeanCb[rightIdx];
         const dCr = blockCr - blockMeanCr[rightIdx];
@@ -2192,9 +2038,6 @@ function analyzeFrame(data, previousData, deltaTime) {
 
         const belowIdx = idx + CONTRAST_GRID_COLS;
 
-        lumNeighborSum +=
-          Math.abs(blockY - blockMeanY[belowIdx]);
-
         const dCb = blockCb - blockMeanCb[belowIdx];
         const dCr = blockCr - blockMeanCr[belowIdx];
 
@@ -2205,28 +2048,14 @@ function analyzeFrame(data, previousData, deltaTime) {
     }
   }
 
-  const contrastNeighborRaw =
-    neighborPairCount > 0 ? lumNeighborSum / neighborPairCount : 0;
-
   const colorContrastNeighborRaw =
     neighborPairCount > 0 ? colorNeighborSum / neighborPairCount : 0;
 
 
   /*
-    Zwei-Gruppen-Trennung der Helligkeit (Otsu-artig) und
-    mittlere paarweise Farbdistanz über alle Blöcke (siehe
-    Hilfsfunktionen oben).
+    Mittlere paarweise Farbdistanz über alle Blöcke (siehe
+    averagePairwiseChromaDistance() oben).
   */
-
-  const sortedBlockY = blockSortScratch.subarray(0, numBlocks);
-  sortedBlockY.set(blockMeanY.subarray(0, numBlocks));
-  sortedBlockY.sort();
-
-  const { meanLow: lumLowMean, meanHigh: lumHighMean } =
-    otsuSplit(sortedBlockY);
-
-  const contrastSeparationRaw =
-    Math.abs(lumHighMean - lumLowMean);
 
   const colorContrastSeparationRaw =
     averagePairwiseChromaDistance(blockMeanCb, blockMeanCr, numBlocks);
@@ -2235,40 +2064,10 @@ function analyzeFrame(data, previousData, deltaTime) {
   /*
     Normierung auf 0-100 und Kombination von Nachbar- und
     Trennungs-Anteil (siehe CONTRAST_NEIGHBOR_WEIGHT /
-    CONTRAST_SEPARATION_WEIGHT weiter oben).
+    CONTRAST_SEPARATION_WEIGHT weiter oben). Es findet keine
+    Normierung auf einen festen Bereich (z. B. 0-100) statt -
+    colorContrastRaw bleibt ein unnormierter Rohwert.
   */
-
-  const contrastNeighborNorm =
-    clamp((contrastNeighborRaw / LUMINANCE_NEIGHBOR_REFERENCE) * 100, 0, 100);
-
-  const contrastSeparationNorm =
-    clamp((contrastSeparationRaw / LUMINANCE_SEPARATION_REFERENCE) * 100, 0, 100);
-
-  const colorContrastNeighborNorm =
-    clamp((colorContrastNeighborRaw / COLOR_NEIGHBOR_REFERENCE) * 100, 0, 100);
-
-  const colorContrastSeparationNorm =
-    clamp((colorContrastSeparationRaw / COLOR_SEPARATION_REFERENCE) * 100, 0, 100);
-
-  const contrast =
-    clamp(
-      contrastNeighborNorm * CONTRAST_NEIGHBOR_WEIGHT +
-      contrastSeparationNorm * CONTRAST_SEPARATION_WEIGHT,
-      0,
-      100
-    );
-
-  const contrastRaw =
-    contrastNeighborRaw * CONTRAST_NEIGHBOR_WEIGHT +
-    contrastSeparationRaw * CONTRAST_SEPARATION_WEIGHT;
-
-  const colorContrast =
-    clamp(
-      colorContrastNeighborNorm * CONTRAST_NEIGHBOR_WEIGHT +
-      colorContrastSeparationNorm * CONTRAST_SEPARATION_WEIGHT,
-      0,
-      100
-    );
 
   const colorContrastRaw =
     colorContrastNeighborRaw * CONTRAST_NEIGHBOR_WEIGHT +
@@ -2278,17 +2077,10 @@ function analyzeFrame(data, previousData, deltaTime) {
   if (!hasPrevious) {
 
     return {
-      contrast,
-      contrastRaw,
-      contrastNeighborRaw,
-      contrastSeparationRaw,
-      colorContrast,
       colorContrastRaw,
       colorContrastNeighborRaw,
       colorContrastSeparationRaw,
-      motion: 0,
       motionRaw: 0,
-      cutScore: 0,
       cutDiffRaw: 0,
       meanLuminance: mean,
       pixelDiff: 0
@@ -2300,33 +2092,26 @@ function analyzeFrame(data, previousData, deltaTime) {
     Roh-Pixeldifferenz, pro Sample-Schritt (nicht zeitnormalisiert).
 
     Basiert auf der mittleren RGB-Kanaldifferenz (siehe
-    cutDiffSum oben) statt auf der Luminanzdifferenz. Dadurch
-    wird auch isoluminante Bewegung erfasst (z. B. ein rotes
-    Objekt vor grünem Hintergrund bei ähnlicher Helligkeit),
-    die über eine reine Helligkeitsbetrachtung nicht sichtbar
-    gewesen wäre.
+    cutDiffSum oben). Dadurch wird auch isoluminante Bewegung
+    erfasst (z. B. ein rotes Objekt vor grünem Hintergrund bei
+    ähnlicher Helligkeit), die über eine reine Helligkeits-
+    betrachtung nicht sichtbar gewesen wäre.
 
-    Dieser Rohwert ist von SAMPLE_FPS abhängig und wird deshalb
-    NICHT direkt als Motion-Wert verwendet, sondern zunächst nur
-    für den Schnittscore weiter unten (motionForCutScore), damit
-    sich die Schnitterkennung durch die zeitliche Motion-
-    Normalisierung nicht verändert. Derselbe Rohwert wird auch
-    für den zeitnormalisierten Motion-Wert (motionRaw/motion)
-    unten und für den Schnittscore (pixelScore) verwendet - es
-    handelt sich inhaltlich um dieselbe Messgröße wie bei der
-    bisherigen Schnitterkennung.
+    Dieser Wert wird sowohl für die Bewegung (zeitnormalisiert,
+    siehe motionRaw unten) als auch für die Schnitterkennung
+    (siehe detectCuts()) verwendet - beides ohne weitere
+    Normierung auf einen festen Bereich.
   */
 
   const averageCutDifference =
     cutDiffSum / count;
 
-  const motionForCutScore =
-    clamp((averageCutDifference / 25) * 100, 0, 100);
-
 
   /*
-    Bewegung - zeitnormalisiert (0-100, für Chart/Kachel) und roh
-    (für die wissenschaftliche Auswertung, z. B. CSV-Export).
+    Bewegung - zeitnormalisiert (Pixeländerung pro Sekunde) und
+    unnormiert. Es gibt keine Kalibrierung auf einen festen
+    Bereich (z. B. 0-100) mehr - motionRaw ist der einzige
+    Bewegungswert.
   */
 
   const safeDeltaTime =
@@ -2335,41 +2120,12 @@ function analyzeFrame(data, previousData, deltaTime) {
   const motionRaw =
     averageCutDifference / safeDeltaTime;
 
-  const motion =
-    clamp((motionRaw / MOTION_RATE_FOR_MAX_SCORE) * 100, 0, 100);
-
-
-  /*
-    Schnittscore.
-
-    Verwendet denselben averageCutDifference-Rohwert wie oben.
-    Die Gewichtung/Formel selbst ist unverändert gegenüber der
-    bisherigen Version.
-  */
-
-  const pixelScore =
-    clamp((averageCutDifference / 50) * 100, 0, 100);
-
-  const cutScore =
-    clamp(
-      pixelScore * 0.85 + Math.min(motionForCutScore, 70) * 0.15,
-      0,
-      100
-    );
-
 
   return {
-    contrast,
-    contrastRaw,
-    contrastNeighborRaw,
-    contrastSeparationRaw,
-    colorContrast,
     colorContrastRaw,
     colorContrastNeighborRaw,
     colorContrastSeparationRaw,
-    motion,
     motionRaw,
-    cutScore,
     cutDiffRaw: averageCutDifference,
     meanLuminance: mean,
     pixelDiff: averageCutDifference
@@ -2398,29 +2154,10 @@ function finishAnalysis(wasCancelled) {
   /*
     Durchschnittswerte.
 
-    Es werden ausschließlich die unnormierten Rohwerte berechnet
-    und angezeigt (Kacheln, Zusammenfassung, CSV-Export). Die
-    kalibrierten 0-100-Werte pro Frame (contrast, colorContrast,
-    motion, cutScore) existieren weiterhin in "results" und
-    werden für die Chart-Darstellung sowie die Schnitterkennung
-    verwendet, tauchen aber nicht mehr in Tabellen oder Kacheln
-    auf.
+    Es werden ausschließlich unnormierte Rohwerte berechnet und
+    angezeigt (Kacheln, Zusammenfassung, CSV-Export, Chart). Es
+    gibt keine kalibrierten/normierten Zwischenwerte mehr.
   */
-
-  const avgContrastRaw =
-    average(
-      results.map(r => r.contrastRaw)
-    );
-
-  const avgContrastNeighborRaw =
-    average(
-      results.map(r => r.contrastNeighborRaw)
-    );
-
-  const avgContrastSeparationRaw =
-    average(
-      results.map(r => r.contrastSeparationRaw)
-    );
 
   const avgColorContrastRaw =
     average(
@@ -2447,13 +2184,6 @@ function finishAnalysis(wasCancelled) {
       results.map(r => r.cutDiffRaw)
     );
 
-
-  avgContrastEl.textContent =
-    formatDecimal(avgContrastRaw);
-
-  avgContrastRawEl.textContent =
-    `Nachbar: ${formatDecimal(avgContrastNeighborRaw)} · ` +
-    `Trennung: ${formatDecimal(avgContrastSeparationRaw)}`;
 
   avgColorContrastEl.textContent =
     formatDecimal(avgColorContrastRaw);
@@ -2538,9 +2268,6 @@ function finishAnalysis(wasCancelled) {
     contrastGridRows: CONTRAST_GRID_ROWS,
     analysisWidth: ANALYSIS_WIDTH,
     analysisHeight: ANALYSIS_HEIGHT,
-    avgContrastRaw,
-    avgContrastNeighborRaw,
-    avgContrastSeparationRaw,
     avgColorContrastRaw,
     avgColorContrastNeighborRaw,
     avgColorContrastSeparationRaw,
@@ -2584,12 +2311,19 @@ function detectCuts(data) {
   const cuts = [];
 
   /*
-    Score-Schwelle.
+    Schwelle auf dem rohen Schnitt-Differenzwert (cutDiffRaw =
+    mittlere absolute RGB-Kanaldifferenz zum vorherigen Frame,
+    Wertebereich 0-255).
 
-    Kann später kalibriert werden.
+    Es gibt keine 0-100-Normierung/Kalibrierung mehr - die
+    Schnitterkennung arbeitet direkt auf diesem Rohwert. Der
+    Startwert 36 ist eine grobe, nicht empirisch kalibrierte
+    Faustregel (entspricht ungefähr der alten, inzwischen
+    entfernten normierten Schwelle von 72 auf einer 0-100-Skala)
+    und kann bei Bedarf anhand von Testvideos angepasst werden.
   */
 
-  const THRESHOLD = 72;
+  const THRESHOLD = 36;
 
 
   /*
@@ -2622,19 +2356,18 @@ function detectCuts(data) {
     */
 
     const isPeak =
-      current.cutScore >= previous.cutScore &&
-      current.cutScore >= next.cutScore;
+      current.cutDiffRaw >= previous.cutDiffRaw &&
+      current.cutDiffRaw >= next.cutDiffRaw;
 
 
     if (
       isPeak &&
-      current.cutScore >= THRESHOLD &&
+      current.cutDiffRaw >= THRESHOLD &&
       current.time - lastCutTime >= MIN_DISTANCE
     ) {
 
       cuts.push({
         time: current.time,
-        score: current.cutScore,
         diffRaw: current.cutDiffRaw
       });
 
@@ -2678,7 +2411,7 @@ function renderCutList(cuts) {
 
 
     element.textContent =
-      `${formatTime(cut.time)} · ${Math.round(cut.score)}% · Δ${formatDecimal(cut.diffRaw)}`;
+      `${formatTime(cut.time)} · Δ${formatDecimal(cut.diffRaw)}`;
 
 
     /*
@@ -2892,13 +2625,43 @@ function drawChart(data, cuts, viewStart, viewEnd) {
 
 
   /*
+    Die Kurven zeigen ausschließlich Rohwerte (siehe results/
+    CSV-Export) - es findet keine inhaltliche Normierung mehr
+    statt. Für die reine Bildschirmdarstellung wird jede Kurve
+    unabhängig auf ihr eigenes Maximum über das GESAMTE Video
+    skaliert (nicht nur den sichtbaren Ausschnitt), damit die
+    Skalierung beim Zoomen/Verschieben stabil bleibt. Das ist
+    eine reine Visualisierungshilfe (Pixelposition auf dem
+    Canvas) und verändert die gespeicherten/exportierten
+    Rohwerte in keiner Weise.
+  */
+
+  function computeMax(key) {
+
+    let max = 0;
+
+    for (let i = 0; i < data.length; i++) {
+
+      const value = data[i][key];
+
+      if (value > max) {
+        max = value;
+      }
+    }
+
+    return max || 1;
+  }
+
+
+  /*
     Funktion zum Zeichnen einer Kurve.
   */
 
   function drawLine(
     key,
     lineWidth,
-    color
+    color,
+    maxValue
   ) {
 
     if (!visibleData.length) {
@@ -2919,7 +2682,7 @@ function drawChart(data, cuts, viewStart, viewEnd) {
 
       const y =
         height -
-        (item[key] / 100) * height;
+        (item[key] / maxValue) * height;
 
 
       if (index === 0) {
@@ -2935,35 +2698,17 @@ function drawChart(data, cuts, viewStart, viewEnd) {
 
 
   /*
-    Kontrast (Helligkeit)
+    Farbkontrast (Farbe)
   */
 
   chartCtx.setLineDash([]);
 
   drawLine(
-    "contrast",
+    "colorContrastRaw",
     2,
-    "#4CAF50"
+    "#FFC107",
+    computeMax("colorContrastRaw")
   );
-
-
-  /*
-    Farbkontrast (Farbe), fein gepunktet zur Unterscheidung von
-    der durchgezogenen Helligkeits-Kontrastlinie.
-  */
-
-  chartCtx.setLineDash([
-    2,
-    3
-  ]);
-
-  drawLine(
-    "colorContrast",
-    2,
-    "#FFC107"
-  );
-
-  chartCtx.setLineDash([]);
 
 
   /*
@@ -2976,9 +2721,10 @@ function drawChart(data, cuts, viewStart, viewEnd) {
   ]);
 
   drawLine(
-    "motion",
+    "motionRaw",
     2,
-    "#2196F3"
+    "#2196F3",
+    computeMax("motionRaw")
   );
 
 
@@ -3465,22 +3211,16 @@ function buildFramesCsv() {
 
   const header = [
     "Zeit_s",
-    "Kontrast_Helligkeit_roh",
-    "Kontrast_Helligkeit_roh_Nachbar",
-    "Kontrast_Helligkeit_roh_Trennung",
     "Farbkontrast_roh",
     "Farbkontrast_roh_Nachbar",
     "Farbkontrast_roh_Trennung",
-    "Bewegung_roh_Helligkeit_pro_s",
+    "Bewegung_roh_RGB_pro_s",
     "SchnittIntensitaet_roh_deltaRGB",
     "IstSchnitt"
   ].join(";");
 
   const rows = results.map(r => [
     formatDecimal(r.time, 3),
-    formatDecimal(r.contrastRaw, 3),
-    formatDecimal(r.contrastNeighborRaw, 3),
-    formatDecimal(r.contrastSeparationRaw, 3),
     formatDecimal(r.colorContrastRaw, 3),
     formatDecimal(r.colorContrastNeighborRaw, 3),
     formatDecimal(r.colorContrastSeparationRaw, 3),
@@ -3511,13 +3251,10 @@ function buildSummaryCsv() {
     ["ZeitProSchnitt_s", formatDecimal(lastSummary.zeitProSchnittSeconds, 2)],
     ["Analyse_abgebrochen", lastSummary.wasCancelled ? "ja" : "nein"],
     ["Analysezeit_s", formatDecimal(lastSummary.analysisTimeSeconds, 1)],
-    ["Kontrast_Helligkeit_roh_Mittelwert", formatDecimal(lastSummary.avgContrastRaw, 3)],
-    ["Kontrast_Helligkeit_roh_Nachbar_Mittelwert", formatDecimal(lastSummary.avgContrastNeighborRaw, 3)],
-    ["Kontrast_Helligkeit_roh_Trennung_Mittelwert", formatDecimal(lastSummary.avgContrastSeparationRaw, 3)],
     ["Farbkontrast_roh_Mittelwert", formatDecimal(lastSummary.avgColorContrastRaw, 3)],
     ["Farbkontrast_roh_Nachbar_Mittelwert", formatDecimal(lastSummary.avgColorContrastNeighborRaw, 3)],
     ["Farbkontrast_roh_Trennung_Mittelwert", formatDecimal(lastSummary.avgColorContrastSeparationRaw, 3)],
-    ["Bewegung_roh_Helligkeit_pro_s_Mittelwert", formatDecimal(lastSummary.avgMotionRaw, 3)],
+    ["Bewegung_roh_RGB_pro_s_Mittelwert", formatDecimal(lastSummary.avgMotionRaw, 3)],
     ["SchnittIntensitaet_roh_deltaRGB_Mittelwert", formatDecimal(lastSummary.avgCutDiffRaw, 3)],
   ];
 
@@ -3648,13 +3385,10 @@ function buildComparisonCsv(list) {
     "Video_Dauer_s",
     "Anzahl_Schnitte",
     "ZeitProSchnitt_s",
-    "Kontrast_Helligkeit_roh_Mittelwert",
-    "Kontrast_Helligkeit_roh_Nachbar_Mittelwert",
-    "Kontrast_Helligkeit_roh_Trennung_Mittelwert",
     "Farbkontrast_roh_Mittelwert",
     "Farbkontrast_roh_Nachbar_Mittelwert",
     "Farbkontrast_roh_Trennung_Mittelwert",
-    "Bewegung_roh_Helligkeit_pro_s_Mittelwert",
+    "Bewegung_roh_RGB_pro_s_Mittelwert",
     "SchnittIntensitaet_roh_deltaRGB_Mittelwert",
     "Analysezeit_s"
   ].join(";");
@@ -3671,9 +3405,6 @@ function buildComparisonCsv(list) {
     formatDecimal(entry.videoDurationSeconds, 2),
     entry.cutCount,
     formatDecimal(entry.zeitProSchnittSeconds, 2),
-    formatDecimal(entry.avgContrastRaw, 3),
-    formatDecimal(entry.avgContrastNeighborRaw, 3),
-    formatDecimal(entry.avgContrastSeparationRaw, 3),
     formatDecimal(entry.avgColorContrastRaw, 3),
     formatDecimal(entry.avgColorContrastNeighborRaw, 3),
     formatDecimal(entry.avgColorContrastSeparationRaw, 3),
@@ -3705,9 +3436,6 @@ addToComparisonBtn.addEventListener("click", () => {
     videoDurationSeconds: lastSummary.videoDurationSeconds,
     cutCount: lastSummary.cutCount,
     zeitProSchnittSeconds: lastSummary.zeitProSchnittSeconds,
-    avgContrastRaw: lastSummary.avgContrastRaw,
-    avgContrastNeighborRaw: lastSummary.avgContrastNeighborRaw,
-    avgContrastSeparationRaw: lastSummary.avgContrastSeparationRaw,
     avgColorContrastRaw: lastSummary.avgColorContrastRaw,
     avgColorContrastNeighborRaw: lastSummary.avgColorContrastNeighborRaw,
     avgColorContrastSeparationRaw: lastSummary.avgColorContrastSeparationRaw,
