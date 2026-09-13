@@ -684,9 +684,8 @@
   
     
     <div class="metric">
-      <div class="metric-label">Ø Farbkontrast (Farbe) · Rohwert</div>
+      <div class="metric-label">Ø Farbkontrast (Farbe, Trennung) · Rohwert</div>
       <div class="metric-value" id="avgColorContrast" style="color: #FFC107">–</div>
-      <div class="metric-raw" id="avgColorContrastRaw">Nachbar: – · Trennung: –</div>
     </div>
 
     <div class="metric">
@@ -809,16 +808,27 @@
     "Farbkontrast (Farbe)" misst, wie stark sich zusammen-
     hängende Bildbereiche (Blöcke) ausschließlich auf Basis der
     Farbinformation (Chrominanz, YCbCr-Farbraum) voneinander
-    abheben - unabhängig von der Helligkeit. Kombiniert aus (a)
-    der mittleren Farbdistanz benachbarter Blöcke und (b) der
-    mittleren paarweisen Farbdistanz über alle Blöcke. Das
-    erkennt auch Fälle, in denen sich Vordergrund und Hintergrund
-    zwar farblich, aber kaum in der Helligkeit unterscheiden
-    (z. B. eine rote Figur vor grünem Hintergrund bei ähnlicher
-    Helligkeit). Werte aus älteren Analysen/CSV-Exporten sind mit
-    dieser Version nicht direkt vergleichbar.
+    abheben - unabhängig von der Helligkeit. Berechnet als
+    mittlere paarweise Farbdistanz über ALLE Blockpaare im
+    Raster ("Trennung"). Das erkennt auch Fälle, in denen sich
+    Vordergrund und Hintergrund zwar farblich, aber kaum in der
+    Helligkeit unterscheiden (z. B. eine rote Figur vor grünem
+    Hintergrund bei ähnlicher Helligkeit). Werte aus älteren
+    Analysen/CSV-Exporten sind mit dieser Version nicht direkt
+    vergleichbar.
 
   Änderungen in dieser (aktuellsten) Version:
+
+  - Der Farbkontrast wird jetzt ausschließlich über den
+    "Trennung"-Anteil (mittlere paarweise Farbdistanz über alle
+    Blockpaare) gebildet. Der bisherige zusätzliche "Nachbar"-
+    Anteil (mittlere Farbdistanz direkt benachbarter Blöcke) und
+    dessen Gewichtung mit dem Trennungs-Anteil wurden entfernt -
+    "colorContrastRaw" ist jetzt identisch mit dem, was vorher
+    "colorContrastSeparationRaw" hieß. Die CSV-Spalten
+    "..._Nachbar" bzw. "..._Trennung" für den Farbkontrast
+    entfallen entsprechend; es gibt nur noch eine einzelne
+    "Farbkontrast_roh"-Spalte.
 
   - Der bisherige, auf Helligkeit basierende Kontrast-Kanal
     ("Kontrast (Helligkeit)") wurde vollständig entfernt - er
@@ -866,7 +876,6 @@ const statusEl = document.getElementById("status");
 const progressBar = document.getElementById("progressBar");
 
 const avgColorContrastEl = document.getElementById("avgColorContrast");
-const avgColorContrastRawEl = document.getElementById("avgColorContrastRaw");
 const avgMotionEl = document.getElementById("avgMotion");
 const cutCountEl = document.getElementById("cutCount");
 const avgCutDiffRawEl = document.getElementById("avgCutDiffRaw");
@@ -956,27 +965,17 @@ const MAX_CONTRAST_BLOCKS =
 
 
 /*
-  Gewichtung der beiden Teilaspekte innerhalb der
-  Farbkontrastmetrik:
+  Farbkontrastmetrik.
 
-  - "Nachbar"-Anteil: mittlere Farbdistanz zwischen direkt
-    benachbarten Blöcken. Misst Kantenschärfe/Konturen.
-  - "Trennung"-Anteil: mittlere paarweise Farbdistanz über ALLE
-    Blockpaare. Misst, wie farblich vielfältig/getrennt das Bild
-    insgesamt ist, unabhängig von der genauen Position der
-    Farbflächen zueinander.
-
-  Der "Trennung"-Anteil liegt näher an der eigentlichen
-  Zielsetzung ("wie gut trennt sich Vordergrund vom
-  Hintergrund") und wird deshalb etwas stärker gewichtet. Beide
-  Rohwerte werden zusätzlich einzeln im CSV-Export mitgegeben,
-  falls diese Gewichtung sich in der Praxis als unpassend
-  herausstellt. Das Ergebnis (colorContrastRaw) bleibt in jedem
-  Fall ein Rohwert - es findet keine Normierung auf einen festen
-  Bereich (z. B. 0-100) statt.
+  Es wird ausschließlich der "Trennung"-Anteil verwendet: die
+  mittlere paarweise Farbdistanz über ALLE Blockpaare (nicht nur
+  direkt benachbarter Blöcke). Das misst, wie farblich vielfältig/
+  getrennt das Bild insgesamt ist, unabhängig von der genauen
+  Position der Farbflächen zueinander - näher an der eigentlichen
+  Zielsetzung ("wie gut trennt sich Vordergrund vom Hintergrund")
+  als ein reiner Nachbar-Vergleich. Das Ergebnis (colorContrastRaw)
+  bleibt ein unnormierter Rohwert.
 */
-const CONTRAST_NEIGHBOR_WEIGHT = 0.4;
-const CONTRAST_SEPARATION_WEIGHT = 0.6;
 
 
 /*
@@ -1186,7 +1185,6 @@ fileInput.addEventListener("change", () => {
   progressBar.style.width = "0%";
 
   avgColorContrastEl.textContent = "–";
-  avgColorContrastRawEl.textContent = "Nachbar: – · Trennung: –";
   avgMotionEl.textContent = "–";
   cutCountEl.textContent = "–";
   avgCutDiffRawEl.textContent = "–";
@@ -1272,7 +1270,6 @@ clearBtn.addEventListener("click", () => {
   progressBar.style.width = "0%";
 
   avgColorContrastEl.textContent = "–";
-  avgColorContrastRawEl.textContent = "Nachbar: – · Trennung: –";
   avgMotionEl.textContent = "–";
   cutCountEl.textContent = "–";
   avgCutDiffRawEl.textContent = "–";
@@ -1580,8 +1577,6 @@ async function analyzeVideo() {
     results.push({
       time,
       colorContrastRaw: frame.colorContrastRaw,
-      colorContrastNeighborRaw: frame.colorContrastNeighborRaw,
-      colorContrastSeparationRaw: frame.colorContrastSeparationRaw,
       motionRaw: frame.motionRaw,
       cutDiffRaw: frame.cutDiffRaw
     });
@@ -2006,80 +2001,21 @@ function analyzeFrame(data, previousData, deltaTime) {
 
 
   /*
-    Nachbar-Differenzen: mittlere Farbdistanz zwischen direkt
-    benachbarten Blöcken (rechts/unten).
-  */
-
-  let colorNeighborSum = 0;
-  let neighborPairCount = 0;
-
-  for (let row = 0; row < CONTRAST_GRID_ROWS; row++) {
-
-    for (let col = 0; col < CONTRAST_GRID_COLS; col++) {
-
-      const idx = row * CONTRAST_GRID_COLS + col;
-
-      const blockCb = blockMeanCb[idx];
-      const blockCr = blockMeanCr[idx];
-
-      if (col < CONTRAST_GRID_COLS - 1) {
-
-        const rightIdx = idx + 1;
-
-        const dCb = blockCb - blockMeanCb[rightIdx];
-        const dCr = blockCr - blockMeanCr[rightIdx];
-
-        colorNeighborSum += Math.sqrt(dCb * dCb + dCr * dCr);
-
-        neighborPairCount++;
-      }
-
-      if (row < CONTRAST_GRID_ROWS - 1) {
-
-        const belowIdx = idx + CONTRAST_GRID_COLS;
-
-        const dCb = blockCb - blockMeanCb[belowIdx];
-        const dCr = blockCr - blockMeanCr[belowIdx];
-
-        colorNeighborSum += Math.sqrt(dCb * dCb + dCr * dCr);
-
-        neighborPairCount++;
-      }
-    }
-  }
-
-  const colorContrastNeighborRaw =
-    neighborPairCount > 0 ? colorNeighborSum / neighborPairCount : 0;
-
-
-  /*
-    Mittlere paarweise Farbdistanz über alle Blöcke (siehe
-    averagePairwiseChromaDistance() oben).
-  */
-
-  const colorContrastSeparationRaw =
-    averagePairwiseChromaDistance(blockMeanCb, blockMeanCr, numBlocks);
-
-
-  /*
-    Normierung auf 0-100 und Kombination von Nachbar- und
-    Trennungs-Anteil (siehe CONTRAST_NEIGHBOR_WEIGHT /
-    CONTRAST_SEPARATION_WEIGHT weiter oben). Es findet keine
-    Normierung auf einen festen Bereich (z. B. 0-100) statt -
-    colorContrastRaw bleibt ein unnormierter Rohwert.
+    Farbkontrast: mittlere paarweise Farbdistanz über alle Blöcke
+    (siehe averagePairwiseChromaDistance() oben). Das ist zugleich
+    der einzige verwendete Anteil - es gibt keinen zusätzlichen
+    "Nachbar"-Anteil mehr. colorContrastRaw bleibt ein
+    unnormierter Rohwert.
   */
 
   const colorContrastRaw =
-    colorContrastNeighborRaw * CONTRAST_NEIGHBOR_WEIGHT +
-    colorContrastSeparationRaw * CONTRAST_SEPARATION_WEIGHT;
+    averagePairwiseChromaDistance(blockMeanCb, blockMeanCr, numBlocks);
 
 
   if (!hasPrevious) {
 
     return {
       colorContrastRaw,
-      colorContrastNeighborRaw,
-      colorContrastSeparationRaw,
       motionRaw: 0,
       cutDiffRaw: 0,
       meanLuminance: mean,
@@ -2123,8 +2059,6 @@ function analyzeFrame(data, previousData, deltaTime) {
 
   return {
     colorContrastRaw,
-    colorContrastNeighborRaw,
-    colorContrastSeparationRaw,
     motionRaw,
     cutDiffRaw: averageCutDifference,
     meanLuminance: mean,
@@ -2164,16 +2098,6 @@ function finishAnalysis(wasCancelled) {
       results.map(r => r.colorContrastRaw)
     );
 
-  const avgColorContrastNeighborRaw =
-    average(
-      results.map(r => r.colorContrastNeighborRaw)
-    );
-
-  const avgColorContrastSeparationRaw =
-    average(
-      results.map(r => r.colorContrastSeparationRaw)
-    );
-
   const avgMotionRaw =
     average(
       results.map(r => r.motionRaw)
@@ -2187,10 +2111,6 @@ function finishAnalysis(wasCancelled) {
 
   avgColorContrastEl.textContent =
     formatDecimal(avgColorContrastRaw);
-
-  avgColorContrastRawEl.textContent =
-    `Nachbar: ${formatDecimal(avgColorContrastNeighborRaw)} · ` +
-    `Trennung: ${formatDecimal(avgColorContrastSeparationRaw)}`;
 
   avgMotionEl.textContent =
     formatDecimal(avgMotionRaw);
@@ -2269,8 +2189,6 @@ function finishAnalysis(wasCancelled) {
     analysisWidth: ANALYSIS_WIDTH,
     analysisHeight: ANALYSIS_HEIGHT,
     avgColorContrastRaw,
-    avgColorContrastNeighborRaw,
-    avgColorContrastSeparationRaw,
     avgMotionRaw,
     avgCutDiffRaw,
     cutCount: cuts.length,
@@ -3212,8 +3130,6 @@ function buildFramesCsv() {
   const header = [
     "Zeit_s",
     "Farbkontrast_roh",
-    "Farbkontrast_roh_Nachbar",
-    "Farbkontrast_roh_Trennung",
     "Bewegung_roh_RGB_pro_s",
     "SchnittIntensitaet_roh_deltaRGB",
     "IstSchnitt"
@@ -3222,8 +3138,6 @@ function buildFramesCsv() {
   const rows = results.map(r => [
     formatDecimal(r.time, 3),
     formatDecimal(r.colorContrastRaw, 3),
-    formatDecimal(r.colorContrastNeighborRaw, 3),
-    formatDecimal(r.colorContrastSeparationRaw, 3),
     formatDecimal(r.motionRaw, 3),
     formatDecimal(r.cutDiffRaw, 3),
     cutTimes.has(r.time) ? 1 : 0
@@ -3252,8 +3166,6 @@ function buildSummaryCsv() {
     ["Analyse_abgebrochen", lastSummary.wasCancelled ? "ja" : "nein"],
     ["Analysezeit_s", formatDecimal(lastSummary.analysisTimeSeconds, 1)],
     ["Farbkontrast_roh_Mittelwert", formatDecimal(lastSummary.avgColorContrastRaw, 3)],
-    ["Farbkontrast_roh_Nachbar_Mittelwert", formatDecimal(lastSummary.avgColorContrastNeighborRaw, 3)],
-    ["Farbkontrast_roh_Trennung_Mittelwert", formatDecimal(lastSummary.avgColorContrastSeparationRaw, 3)],
     ["Bewegung_roh_RGB_pro_s_Mittelwert", formatDecimal(lastSummary.avgMotionRaw, 3)],
     ["SchnittIntensitaet_roh_deltaRGB_Mittelwert", formatDecimal(lastSummary.avgCutDiffRaw, 3)],
   ];
@@ -3386,8 +3298,6 @@ function buildComparisonCsv(list) {
     "Anzahl_Schnitte",
     "ZeitProSchnitt_s",
     "Farbkontrast_roh_Mittelwert",
-    "Farbkontrast_roh_Nachbar_Mittelwert",
-    "Farbkontrast_roh_Trennung_Mittelwert",
     "Bewegung_roh_RGB_pro_s_Mittelwert",
     "SchnittIntensitaet_roh_deltaRGB_Mittelwert",
     "Analysezeit_s"
@@ -3406,8 +3316,6 @@ function buildComparisonCsv(list) {
     entry.cutCount,
     formatDecimal(entry.zeitProSchnittSeconds, 2),
     formatDecimal(entry.avgColorContrastRaw, 3),
-    formatDecimal(entry.avgColorContrastNeighborRaw, 3),
-    formatDecimal(entry.avgColorContrastSeparationRaw, 3),
     formatDecimal(entry.avgMotionRaw, 3),
     formatDecimal(entry.avgCutDiffRaw, 3),
     formatDecimal(entry.analysisTimeSeconds, 1)
@@ -3437,8 +3345,6 @@ addToComparisonBtn.addEventListener("click", () => {
     cutCount: lastSummary.cutCount,
     zeitProSchnittSeconds: lastSummary.zeitProSchnittSeconds,
     avgColorContrastRaw: lastSummary.avgColorContrastRaw,
-    avgColorContrastNeighborRaw: lastSummary.avgColorContrastNeighborRaw,
-    avgColorContrastSeparationRaw: lastSummary.avgColorContrastSeparationRaw,
     avgMotionRaw: lastSummary.avgMotionRaw,
     avgCutDiffRaw: lastSummary.avgCutDiffRaw,
     analysisTimeSeconds: lastSummary.analysisTimeSeconds
